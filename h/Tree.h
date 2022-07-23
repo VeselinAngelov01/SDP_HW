@@ -31,7 +31,7 @@ private:
     // Help fucntion for destructor
     void clear(Node*& node);
     // Insert element where uniqueId - parentId, newId - childId
-    bool addToTree(Node*& current, int uniqueId, int value, int currentLevel, int level, int newId);
+    bool addToTree(Node*& current, int uniqueId, int value, int newId);
     // Help fucntion for copy constructor/operator
     void copy(Node*& current, Node* org);
 
@@ -46,8 +46,13 @@ private:
     // Compare children
     bool isSubtree(Node*& node,Node* other);
 
+    // Returns sum of all left nodes
+    void findSum(Node*& node,Node* other,int& sum);
 
-    //void postOrder(Node*& node,const Tree& other);
+    void postOrder(Node*& node,const Tree& other,int parentID);
+
+    void findSumLeftSubtree(Node*& node,int& sum);
+    bool isUnique(std::vector<int>& ID, int newId);
 public:
 
     Tree();
@@ -56,7 +61,7 @@ public:
     Tree(const Tree& other);
     Tree& operator=(const Tree& other);
 
-    void insert(int uniqueId, int value, int level);
+    void insert(int uniqueId, int value);
    
     void readFromFile(std::string& fileName);
     void saveToFile(std::string& fileName);
@@ -65,7 +70,7 @@ public:
 
     bool contains(const Tree& other);
 
-   // bool remove(const Tree& other);
+    bool remove(const Tree& other);
 };
 
 
