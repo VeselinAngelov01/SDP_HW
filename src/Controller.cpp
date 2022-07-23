@@ -97,6 +97,17 @@ void Controller::run()
 			else if (command == "REMOVE")
 			{
 				if (split.size() > 3) throw std::invalid_argument("Too many args!");
+				if (!exists(split.at(1)))
+				{
+					ERR = "Tree " + split.at(1) + " does not exists!";
+					throw std::invalid_argument(ERR);
+				}
+				else if (!exists(split.at(2)))
+				{
+					ERR = "Tree " + split.at(2) + " does not exists!";
+					throw std::invalid_argument(ERR);
+				}
+				forest.at(split.at(1)).remove(forest.at(split.at(2)));
 			}
 			else if (command == "HELP")
 			{

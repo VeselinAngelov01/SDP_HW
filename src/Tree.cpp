@@ -62,36 +62,39 @@ void Tree::copy(Node*& current, Node* org)
     }
 }
 
-bool Tree::addToTree(Node*& current, int uniqueId, int value, int currentLevel, int level,int newId)
+bool Tree::addToTree(Node*& current, int uniqueId, int value, int newId)
 {
-    // If current level is equal to our requested level and parentID's are same
-    if (currentLevel == level && current->uniqueID == uniqueId)
+    if (current->uniqueID == uniqueId)
     {
         size_t childrenCount = current->children.size();
-        // Check if there is already node with same value
+        int indexToInsert = -1;
         for (size_t i = 0; i < childrenCount; ++i)
         {
-            if (current->children.at(i)->value == value)
+            if (!current->children.at(i))
             {
-                // If yes => throw exception
-                throw std::invalid_argument("Invalid data!\n");
+                indexToInsert = i;
+                continue;
+            }
+            else if (current->children.at(i)->value == value)
+            {
+                throw std::invalid_argument("Invalid data!");
             }
         }
-        // If no => insert new node
-        current->children.push_back(new Node(value,newId));
+        if (indexToInsert != -1)
+        {
+            current->children.erase(current->children.begin() + indexToInsert);
+            current->children.insert(current->children.begin() + indexToInsert, new Node(value, newId));
+        }
+        else current->children.push_back(new Node(value,newId));
         return true;
     }
-    // If we are too deeper or no parentID match our => new node can not be inserted
-    else if (currentLevel > level || (currentLevel == level && current->uniqueID != uniqueId)) return false;
     else
     {
-        // In other case go deeper and repeat
         bool res;
         size_t childrenCount = current->children.size();
         for (size_t i = 0; i < childrenCount; ++i)
         {
-            res = addToTree(current->children.at(i), uniqueId, value, ++currentLevel, level,newId);
-            --currentLevel;
+            res = addToTree(current->children.at(i), uniqueId, value, newId);
             if (res) return true;
         }
         return false;
@@ -99,13 +102,13 @@ bool Tree::addToTree(Node*& current, int uniqueId, int value, int currentLevel, 
 
 }
 
-void Tree::insert(int uniqueId, int value, int level)
+void Tree::insert(int uniqueId, int value)
 {
     if (!root) root = new Node(value, uniqueID++);
     else
     {
-        bool res = addToTree(root, uniqueId, value, 1, level,uniqueID++);
-        if (!res) throw std::invalid_argument("Invalid value");
+        bool res = addToTree(root, uniqueId, value, uniqueID++);
+        if (!res) throw std::invalid_argument("No such parent!");
     }
 }
 
@@ -129,32 +132,24 @@ void Tree::getChildren(std::string& input, size_t startIndex,std::vector<int>& c
             }
         }
     }
-    if (temp.length() > 0)
-    {
-        children.push_back(std::stoi(temp));
-        temp.clear();
-    }
+    if (temp.length() > 0) children.push_back(std::stoi(temp));
+    
 }
 
 void Tree::readFromFile(std::string& fileName)
 {
-    // Clear in case of updating the tree
-    clear(root);
     std::ifstream reader(fileName);
     if (!reader.is_open()) throw std::invalid_argument("Can not open file!");
+    // Clear in case of updating the tree
+    clear(root);
     std::string line;
     int parentID = 0;   // Show ID of parent to be inserted new nodes
     size_t lastDel = 0 , nextDel = 0;  // last and next delimeter
     std::vector<int> children;  // vector with values of children
-    int level = 0; // curent level of insertion
-    std::string ERR; // if error occurs make message and throw
     while (std::getline(reader, line))
     {
-        if (line.length() == 0)
-        {
-            std::cout << "KUR";
-            continue;
-        }
+        // ignore empty rows
+        if (line.length() == 0) continue;
         lastDel = 0; 
         nextDel = 0;
         while (true)
@@ -176,9 +171,8 @@ void Tree::readFromFile(std::string& fileName)
                         reader.close();
                         throw std::invalid_argument("Invalid data at row 1!");
                     }
-                    // Insert root and clear vector to be ready for next line
-                    insert(0, children.at(0), level);
-                    children.clear();
+                    // Insert root
+                    insert(0, children.at(0));
                 }
                 else
                 {
@@ -187,13 +181,13 @@ void Tree::readFromFile(std::string& fileName)
                     size_t size = children.size();
                     for (size_t i = 0; i < size; ++i)
                     {
-                        insert(parentID, children.at(i), level);
+                        insert(parentID, children.at(i));
                     }
                     // Change parent ID only on new line i.e. after every level;
                     parentID++;
-                    // Again clear vector for next line
-                    children.clear();
                 }
+                // Clear vector to be ready for next line
+                children.clear();
             }
             catch (const std::exception&)
             {
@@ -201,13 +195,9 @@ void Tree::readFromFile(std::string& fileName)
                 reader.close();
                 // Clear tree (memory have to be deleted)
                 this->clear(root);
-                // Message a user where error occurs and throw it
-                ERR = "Invalid value at row " + std::to_string(level) + "!";
-                throw std::invalid_argument(ERR);
+                throw std::invalid_argument("Invalid value in tree!");
             } 
         }
-        // After every line increase level (line in file <=> level in tree)
-        level++;
     }
     // Close reader after all is done
     reader.close();
@@ -216,7 +206,8 @@ void Tree::readFromFile(std::string& fileName)
 bool Tree::fileExists(std::string& fileName)
 {
     std::ifstream reader(fileName);
-    if (reader.is_open())
+    // If file can be opened
+    if (!reader.fail())
     {
         std::cout << "There exsits file with this name! Do you want to save anyway? (Y/N)\n";
         std::string answ;
@@ -226,6 +217,7 @@ bool Tree::fileExists(std::string& fileName)
             if (answ == "Y")
             {
                 // If yes -> re-write over file
+                reader.close();
                 break;
             }
             else if (answ == "N")
@@ -237,19 +229,16 @@ bool Tree::fileExists(std::string& fileName)
             else std::cout << "Enter Y/N\n";
         }
     }
-    reader.close();
     return false;
 }
 
 void Tree::saveToFile(std::string& fileName)
 {
     // Check if file exists
-    if (fileExists(fileName))
-    {
-        throw std::invalid_argument("Changes will not be saved!");
-    }
+    if (fileExists(fileName)) throw std::invalid_argument("Changes will not be saved!");
 
-    if (!root) return;
+    if (!root) throw std::invalid_argument("Empty tree!");
+    
     std::ofstream writer(fileName, std::ios::trunc); // Open file to write
     std::queue<Node*> nodes; // Queue is used for getting nodes by levels
     nodes.push(root); // At start add only root
@@ -312,6 +301,8 @@ bool Tree::contains(const Tree& other)
 
 bool Tree::findRoot(Node*& node, Node* other)
 {
+    if (!other) return true; // empty second tree
+    if (!node) return false; // empty first tree
     // Subtree's root can be any of main tree nodes
     // So there are two possible scenarios
     bool res = false;
@@ -344,7 +335,7 @@ bool Tree::isSubtree(Node*& node, Node* other)
     size_t oth = other->children.size();
     bool found = false; // Show if child of our "possible sub-tree" has "twin" in main tree
     bool res = false;
-    // Fore every children of other tree (our possible sub-tree)
+    // For every children of other tree (our possible sub-tree)
     // Try to find "twin" in the main tree
     for (size_t j = 0; j < oth; ++j)
     {
@@ -359,31 +350,106 @@ bool Tree::isSubtree(Node*& node, Node* other)
                 if (res) break;
             }
         }
-        if (!found) return found; // If "twin" is not found => we have node is other tree that is contained is main
-        if (found && !res) return false; // If we have "twins" for all nodes but the "structure" is not same => false
+        // If "twin" is not found => we have node is other tree that is not contained in main
+        // Or if we have "twins" for all nodes but the "structure" is not same => false
+        if (!found || (found && !res)) return false;
     }
     // If we end to leaf (for loop will not go) just return if two values are same
     return node->value == other->value;
 }
 
-/*
+
 bool Tree::remove(const Tree& other)
 {
-    return false;
+    if (!contains(other))
+    {
+        std::cout << "First tree does not contains second!\n";
+        return false;
+    }
+    postOrder(root, other,-1);
+    return true;
 }
 
 
-void Tree::postOrder(Node*& node, const Tree& other)
+void Tree::postOrder(Node*& node, const Tree& other,int parentID)
 {
-    if (!node) return;
+    if (!node || !other.root) return;
     size_t sz = node->children.size();
+    // Start from bottom
     for (size_t i = 0; i < sz; ++i)
     {
-        postOrder(node->children.at(i), other);
+        postOrder(node->children.at(i), other, node->uniqueID);
     }
-    bool res = isSubtree(node, other.root);
+    bool res = findRoot(node, other.root);
     if (res)
     {
         //remove the subtree
+        int sumOfSubtree = 0;
+        findSum(node,other.root,sumOfSubtree);
+        clear(node);
+        std::cout << parentID << std::endl;
+        if(parentID!=-1) insert(parentID, sumOfSubtree);
+        //node = new Node(sumOfSubtree, uniqueID++);
+        std::cout << "Tree successfully removed!\n";
     }
-}*/
+}
+
+void Tree::findSum(Node*& node, Node* other, int& sum)
+{
+    if (other->children.size()== 0)
+    {
+        findSumLeftSubtree(node, sum);
+        sum -= node->value;
+        return;
+    }
+    size_t sizeOfNode = node->children.size();
+    size_t sizeOfSubtree = other->children.size();
+    bool found = false;
+    int childIndex = -1;
+    std::vector<int> uniqueID;
+    for (size_t i = 0; i < sizeOfNode; ++i)
+    {
+        found = false;
+        for (size_t j = 0; j < sizeOfSubtree; ++j)
+        {
+            if (node->children.at(i)->value == other->children.at(j)->value && isUnique(uniqueID, node->children.at(i)->uniqueID))
+            {
+                uniqueID.push_back(node->children.at(i)->uniqueID);
+                childIndex = j;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            findSumLeftSubtree(node, sum);
+            sum -= node->value;
+        }
+        else
+        {
+            findSum(node->children.at(i), other->children.at(childIndex), sum);
+        }
+    }
+    
+}
+
+bool Tree::isUnique(std::vector<int>& ID, int newId)
+{
+    size_t size = ID.size();
+    for (size_t i = 0; i < size; ++i)
+    {
+        if (ID.at(i) == newId) return false;
+    }
+    return true;
+}
+
+void Tree::findSumLeftSubtree(Node*& node,int&sum)
+{
+    if (!node) return;
+    size_t childrenCount = node->children.size();
+    sum += node->value;
+    for (size_t i = 0; i < childrenCount; ++i)
+    {
+        findSumLeftSubtree(node->children.at(i), sum);
+    }
+}
